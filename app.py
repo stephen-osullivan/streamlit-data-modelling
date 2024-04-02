@@ -14,20 +14,32 @@ def load_sklearn_dataset(dataset_name):
     df = pd.DataFrame(data.data, columns=data.feature_names)
     return df
 
+# Function to get the number of rows and features of each type
+def data_overview(data):
+    num_rows, num_features = data.shape[0], data.shape[1]
+    feature_types = data.dtypes.value_counts()
+    overview = pd.DataFrame(
+        {'Number of Rows': [num_rows],
+        'Number of Features': [num_features]} | feature_types.to_dict(),
+        index=['Dataset Overview'])
+    return overview
+
 # Function to generate statistics for numeric features
 def numeric_stats(data):
     numeric_data = data.select_dtypes(include=[np.number])
-    stats = numeric_data.describe(percentiles=[0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99]).T
+    stats = numeric_data.describe(percentiles=[0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99]).drop('count').T
     stats_cols = stats.columns
     numeric_dtypes = numeric_data.dtypes
     missing_values = numeric_data.isnull().sum(axis=0)
-    stats['Data Type'] = numeric_dtypes
-    stats['Missing Values'] = missing_values
-    return stats[['Data Type', 'Missing Values'] + list(stats_cols)]
+    stats['dtype'] = numeric_dtypes
+    stats['nulls'] = missing_values
+    return stats[['dtype', 'nulls'] + list(stats_cols)]
 
 # Function to generate statistics for categorical features
 def categorical_stats(data):
     categorical_data = data.select_dtypes(include=['object', 'bool', 'string'])
+    if len(categorical_data.columns) == 0:
+        return pd.DataFrame()
     stats = []
     for column in categorical_data.columns:
         value_counts = categorical_data[column].value_counts()
@@ -38,13 +50,13 @@ def categorical_stats(data):
         missing_values = categorical_data[column].isnull().sum()
         stats.append(
             {
-                'Feature' : column,
-                'Data Type': categorical_data[column].dtype,
-                'Missing Values': missing_values,
-                'Number of Buckets': num_buckets,
-                'Top Bucket Percentage': top_value_percentage,
-                'Top Bucket Name': top_value_name
-                })
+                'feature' : column,
+                'dtype': categorical_data[column].dtype,
+                'nulls': missing_values,
+                'Buckets': num_buckets,
+                'Top Bucket %': top_value_percentage,
+                'Top Bucket Value': top_value_name,
+            })
     return pd.DataFrame(stats).set_index('Feature')
 
 def main():
@@ -60,22 +72,29 @@ def main():
 
     if file is not None:
         df = load_data(file)
-        # Show pandas-profiling report for custom dataset
-        st.write("### Dataset Overview")
-        
-
     elif sklearn_dataset_name:
         df = load_sklearn_dataset(sklearn_dataset_name)
-        # Show pandas-profiling report for scikit-learn dataset
-        st.write(f"### {sklearn_dataset_name} Overview")
     
-    st.header('Numeric Features')
-    numeric_stats_table = numeric_stats(df)
-    st.table(numeric_stats_table)
+    ### main column
+        
+    st.header('Data Overview')
+    data_overview_table = data_overview(df)
+    st.dataframe(data_overview_table, width=2000)
 
-    st.header('Categorical Features')
+    st.header('Data Snippet')
+    st.dataframe(df.head(10), width = 1000)
+
+    st.header('Numeric Feature Stats')
+    numeric_stats_table = numeric_stats(df)
+    bar_columns = numeric_stats_table.columns[2:]
+    st.dataframe(
+        numeric_stats_table.style.format(precision=2),
+        use_container_width=True,
+        )
+
+    st.header('Categorical Feature Stats')
     categorical_stats_table = categorical_stats(df)
-    st.table(categorical_stats_table)
+    st.dataframe(categorical_stats_table)
 
 if __name__ == "__main__":
     main()
