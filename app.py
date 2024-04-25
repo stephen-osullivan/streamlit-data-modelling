@@ -21,6 +21,7 @@ def load_sklearn_dataset(dataset_name):
     return df
 
 # Function to get the number of rows and features of each type
+
 def data_overview(data):
     num_rows, num_features = data.shape[0], data.shape[1]
     feature_types = data.dtypes.value_counts()
@@ -31,9 +32,10 @@ def data_overview(data):
     return overview
 
 # Function to generate statistics for numeric features
+
 def numeric_stats(data):
     numeric_data = data.select_dtypes(include=[np.number])
-    stats = numeric_data.describe(percentiles=[0.05, 0.25, 0.50, 0.75, 0.95]).drop('count').T
+    stats = numeric_data.describe(percentiles=[0.01, 0.05, 0.25, 0.50, 0.75, 0.95, 0.99]).drop('count').T
     stats['skew'] = numeric_data.skew(axis=0).T
     stats['kurtosis'] =  numeric_data.kurt(axis=0).T
     perc_cols = [c for c in stats.columns if '%' in c]
@@ -113,11 +115,20 @@ def main():
         st.header('Numeric Feature Stats')
         numeric_stats_table = numeric_stats(df)
         bar_columns = numeric_stats_table.columns[2:]
-        st.dataframe(
-            numeric_stats_table.style.format(precision=2),
-            width=1000,
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.dataframe(
+                numeric_stats_table.iloc[:,:6].style.format(precision=2),
+                use_container_width=True,
             )
 
+        with col2:
+            st.dataframe(
+                numeric_stats_table.iloc[:,6:].style.format(precision=2),
+                use_container_width=True,
+            )
+       
         st.header('Categorical Feature Stats')
         categorical_stats_table = categorical_stats(df)
         st.dataframe(
